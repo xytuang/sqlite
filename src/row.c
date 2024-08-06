@@ -6,12 +6,12 @@
 
 Row* new_row() {
     Row* row = (Row*) malloc(sizeof(Row));
-    row->username = (char*) malloc(COLUMN_USERNAME_SIZE);
+    row->username = (char*) malloc(COLUMN_USERNAME_SIZE + 1); //+1 for null byte
     if (row->username == NULL) {
         free(row);
         exit(EXIT_FAILURE);
     }
-    row->email = (char*) malloc(COLUMN_EMAIL_SIZE);
+    row->email = (char*) malloc(COLUMN_EMAIL_SIZE + 1); //+1 for null byte
     if (row->email == NULL) {
         free(row->username);
         free(row);
@@ -41,9 +41,10 @@ void deserialize_row(void* source, Row* destination) {
     memcpy(&(destination->id), source + ID_OFFSET, ID_SIZE);
     memcpy((destination->username), source + USERNAME_OFFSET, destination->username_len);
     memcpy((destination->email), source + USERNAME_OFFSET + destination->username_len, destination->email_len);
+    
     destination->username[destination->username_len] = 0;
     destination->email[destination->email_len] = 0;
-    //printf("email len: %d\n", destination->email_len);
+    
 }
 
 void print_row(Row* row) {
