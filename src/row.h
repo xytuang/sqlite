@@ -2,6 +2,8 @@
 #define ROW_H
 
 typedef struct {
+    uint32_t username_len;
+    uint32_t email_len;
     uint32_t id;
     char* username;
     char* email;

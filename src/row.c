@@ -12,7 +12,7 @@ Row* new_row() {
         exit(EXIT_FAILURE);
     }
     row->email = (char*) malloc(COLUMN_EMAIL_SIZE);
-    if (row->username == NULL) {
+    if (row->email == NULL) {
         free(row->username);
         free(row);
         exit(EXIT_FAILURE);
@@ -27,18 +27,23 @@ void free_row(Row* row) {
 }
 
 void serialize_row(Row* source, void* destination) {
-  memcpy(destination + ID_OFFSET, &(source->id), ID_SIZE);
-  memcpy(destination + USERNAME_OFFSET, &(source->username), USERNAME_SIZE);
-  memcpy(destination + EMAIL_OFFSET, &(source->email), EMAIL_SIZE);
-  free(source->username);
-  free(source->email);
-  free(source);
+    memcpy(destination + USERNAME_LEN_OFFSET, &(source->username_len), USERNAME_LEN_SIZE);
+    memcpy(destination + EMAIL_LEN_OFFSET, &(source->email_len), EMAIL_LEN_SIZE);
+    memcpy(destination + ID_OFFSET, &(source->id), ID_SIZE);
+    memcpy(destination + USERNAME_OFFSET, (source->username), source->username_len);
+    memcpy(destination + USERNAME_OFFSET + source->username_len, (source->email), source->email_len);
+    free_row(source);
 }
 
-void deserialize_row(void* source, Row* destination) {
-  memcpy(&(destination->id), source + ID_OFFSET, ID_SIZE);
-  memcpy(&(destination->username), source + USERNAME_OFFSET, USERNAME_SIZE);
-  memcpy(&(destination->email), source + EMAIL_OFFSET, EMAIL_SIZE);
+void deserialize_row(void* source, Row* destination) { 
+    memcpy(&(destination->username_len), source + USERNAME_LEN_OFFSET, USERNAME_LEN_SIZE);
+    memcpy(&(destination->email_len), source + EMAIL_LEN_OFFSET, EMAIL_LEN_SIZE);
+    memcpy(&(destination->id), source + ID_OFFSET, ID_SIZE);
+    memcpy((destination->username), source + USERNAME_OFFSET, destination->username_len);
+    memcpy((destination->email), source + USERNAME_OFFSET + destination->username_len, destination->email_len);
+    destination->username[destination->username_len] = 0;
+    destination->email[destination->email_len] = 0;
+    //printf("email len: %d\n", destination->email_len);
 }
 
 void print_row(Row* row) {
