@@ -3,13 +3,15 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
 #include "table.h"
 #include "constants.h"
 
 Pager* pager_open(const char* filename) {
-    int fd = open(filename, O_RDWR | O_CREAT | S_IWUSR | S_IRUSR);
+    int fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    //int fd = open(filename, O_RDWR | O_CREAT, S_IWUSR | S_IRUSR); //Create file if it does not exist. User has read and write permissions
     if (fd == -1) {
-        printf("failed to open file\n");
+        printf("failed to open file: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
     off_t file_length = lseek(fd, 0, SEEK_END);
@@ -50,17 +52,6 @@ Table* db_open(const char* filename) {
     return table;
 }
 
-/*
-void free_table(Table* table) {
-    for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
-        if (table->pages[i] != NULL) {
-            free(table->pages[i]);
-        }
-    }
-    free(table->pages);
-    free(table);
-}
-*/
 
 void* get_page(Pager* pager, uint32_t page_num) {
     if (page_num > TABLE_MAX_PAGES) {
@@ -144,6 +135,7 @@ void db_close(Table* table) {
             free(pager->pages[i]);
         }
     }
+    free(pager->pages);
     free(pager);
     free(table);
 }
