@@ -14,7 +14,7 @@ User is guranteed accuracy and consistency of data.
 
 # High level design
 
-![Sqlite Internals](images/sqlite-internals "Sqlite Internals")
+![Sqlite Internals](./images/sqlite-internals.png "Sqlite Internals")
 
 # Detailed design
 
