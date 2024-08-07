@@ -80,14 +80,13 @@ void* get_page(Pager* pager, uint32_t page_num) {
 
 }
 
-void* row_slot(Table* table, uint32_t row_num) {
-  uint32_t page_num = row_num / ROWS_PER_PAGE;
-
-  void* page = get_page(table->pager, page_num);
-
-  uint32_t row_offset = row_num % ROWS_PER_PAGE;
-  uint32_t byte_offset = row_offset * ROW_SIZE;
-  return page + byte_offset;
+void* cursor_value(Cursor* cursor) {
+    uint32_t row_num = cursor->row_num;
+    uint32_t page_num = row_num / ROWS_PER_PAGE;
+    void* page = get_page(cursor->table->pager, page_num);
+    uint32_t row_offset = row_num % ROWS_PER_PAGE;
+    uint32_t byte_offset = row_offset * ROW_SIZE;
+    return page + byte_offset;
 }
 
 void pager_flush(Pager* pager, uint32_t page_num, uint32_t size) {
@@ -138,4 +137,37 @@ void db_close(Table* table) {
     free(pager->pages);
     free(pager);
     free(table);
+}
+
+
+Cursor* table_start(Table* table) {
+    Cursor* cursor = (Cursor*) malloc(sizeof(Cursor));
+    if (cursor == NULL) {
+        printf("allocation for cursor failed\n");
+        exit(EXIT_FAILURE);
+    }
+    cursor->table = table;
+    cursor->row_num =0;
+    cursor->end_of_table = 0;
+    return cursor;
+}
+
+
+Cursor* table_end(Table* table) {
+    Cursor* cursor = (Cursor*) malloc(sizeof(Cursor));
+    if (cursor == NULL) {
+        printf("allocation for cursor failed\n");
+        exit(EXIT_FAILURE);
+    }
+    cursor->table = table;
+    cursor->row_num = table->num_rows;
+    cursor->end_of_table = 1;
+    return cursor;
+}
+
+void cursor_advance(Cursor* cursor) {
+    cursor->row_num++;
+    if (cursor->row_num >= cursor->table->num_rows) {
+        cursor->end_of_table = 1;
+    }
 }

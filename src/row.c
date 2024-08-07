@@ -39,12 +39,10 @@ void deserialize_row(void* source, Row* destination) {
     memcpy(&(destination->username_len), source + USERNAME_LEN_OFFSET, USERNAME_LEN_SIZE);
     memcpy(&(destination->email_len), source + EMAIL_LEN_OFFSET, EMAIL_LEN_SIZE);
     memcpy(&(destination->id), source + ID_OFFSET, ID_SIZE);
-    strncpy((destination->username), source + USERNAME_OFFSET, destination->username_len);
-    strncpy((destination->email), source + USERNAME_OFFSET + destination->username_len, destination->email_len);
-    
+    strncpy(destination->username, source + USERNAME_OFFSET, destination->username_len);
+    strncpy(destination->email, source + USERNAME_OFFSET + destination->username_len, destination->email_len);
     destination->username[destination->username_len] = 0;
     destination->email[destination->email_len] = 0;
-    
 }
 
 void print_row(Row* row) {

@@ -112,11 +112,15 @@ PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement)
 }
 
 ExecuteResult execute_select(Table* table, Statement* statement) {
-    Row row;
-    for (uint32_t i = 0; i < table->num_rows; i++) {
-        deserialize_row(row_slot(table, i), &row);
-        print_row(&row);
+    Cursor* cursor = table_start(table);
+    Row* row = new_row();
+    while(!(cursor->end_of_table)) {
+        deserialize_row(cursor_value(cursor), row);
+        print_row(row);
+        cursor_advance(cursor);
     }
+    free_row(row);
+    free(cursor);
     return EXECUTE_SUCCESS;
 }
 
@@ -125,9 +129,12 @@ ExecuteResult execute_insert(Table* table, Statement* statement) {
     if (table->num_rows >= TABLE_MAX_ROWS) {
         return EXECUTE_TABLE_FULL;
     }
+
     Row* row_to_insert = statement->row_to_insert;
-    serialize_row(row_to_insert, row_slot(table, table->num_rows));
+    Cursor* cursor = table_end(table);
+    serialize_row(row_to_insert, cursor_value(cursor));
     table->num_rows++;
+    free(cursor);
     return EXECUTE_SUCCESS;
 }
 
