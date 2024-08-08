@@ -30,6 +30,17 @@ Information contained in leaf node:
 
 1. An infinite number of key-value pairs
 
+
+B-Tree Node Format for this project
+
+1 node corresponds to 1 page
+
+Type: Internal or Leaf node, 4 bytes
+
+Number of kv pairs: 4 bytes
+
+One kv pair: key is row id and value is username + email
+
 */
 
 #include <stdint.h>

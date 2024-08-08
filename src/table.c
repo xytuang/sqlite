@@ -39,6 +39,8 @@ Pager* pager_open(const char* filename) {
 
 Table* db_open(const char* filename) {
     Pager* pager = pager_open(filename);
+    insert(tree, 1, 2);
+    insert(tree, 2, 3);
     uint32_t num_rows = pager->file_length / ROW_SIZE;
 
     Table* table = (Table*)malloc(sizeof(Table));
