@@ -36,19 +36,18 @@ Information contained in leaf node:
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "vector.h"
 
-const uint32_t MAX_KEYS = 3;
+const uint32_t MAX_KEYS = 3; //m is now 4 ie. max 4 children per node
 
-const uint32_t MAX_VALUES = 3;
-
-typedef enum { ROOT_NODE, LEAF_NODE } NodeType;
+typedef enum { INTERNAL_NODE, LEAF_NODE } NodeType;
 
 typedef struct Node{
     NodeType type;
     uint32_t num_keys;
-    uint32_t* keys;
-    uint32_t* values; //used only by leaf nodes
-    struct Node** children; //used only by internal nodes
+    uint32_t keys[MAX_KEYS + 1]; //+1 to allow temporary overflow of keys
+    uint32_t values[MAX_KEYS + 1]; //used only by leaf nodes
+    struct Node* children[MAX_KEYS + 1]; //used only by internal nodes
 } Node;
 
 typedef struct {
@@ -56,6 +55,9 @@ typedef struct {
 } BPlusTree;
 
 
+/**************************************************
+Node methods
+**************************************************/
 
 Node* new_node(NodeType type) {
     Node* node = (Node*) malloc(sizeof(Node));
@@ -64,33 +66,133 @@ Node* new_node(NodeType type) {
         exit(EXIT_FAILURE);
     }
     node->num_keys = 0;
-    uint32_t* keys = (uint32_t *) malloc(sizeof(uint32_t) * MAX_KEYS);
-
-    if (node == NULL) {
-        printf("Failed to make keys\n");
-        exit(EXIT_FAILURE);
+    node->type = type;
+    for (int i = 0; i < MAX_KEYS + 1; i++) {
+        node->children[i] = NULL;
     }
-
-    uint32_t* values = (uint32_t *) malloc(sizeof(uint32_t) * MAX_VALUES);
-
-    if (values == NULL) {
-        printf("Failed to make values\n");
-        exit(EXIT_FAILURE);
-    }
-
-    Node** children = (Node**) malloc(sizeof(Node*) * (MAX_KEYS + 1));
-
-    if (children == NULL) {
-        printf("Failed to make children\n");
-        exit(EXIT_FAILURE);
-    }
-    node->keys = keys;
-    node->values = values;
-    node->children = children;
 
     return node;
 }
 
+void free_node(Node* node) {
+    if (node == NULL) {
+        return;
+    }
+    for (uint32_t i = 0; i < node->num_keys; i++) {
+        free_node(node->children[i]);
+    }
+    free(node);
+}
+
+/*
+TODO: Visualize tree using BFS. Shows keys/kv pairs on each level and node
+*/
+void traverse_tree(Node* node) {
+    int level = 0;
+    Vector* queue = new_vector();
+    append(queue, node);
+    while(queue->curr_length != 0) {
+        printf("LEVEL %d\n", level);
+        int len = queue->curr_length;
+        for (int i = 0; i < len; i++) {
+            Node* curr = queue->arr[0];
+            pop(queue);
+            printf("Number of keys: %d\n", curr->num_keys);
+            printf("Keys: ");
+            for (int j = 0; j <= curr->num_keys; j++) {
+                if (j == curr->num_keys - 1) {
+                    printf("%d\n", curr->keys[j]);
+                }
+                else if (j < curr->num_keys) {
+                    printf("%d ", curr->keys[j]);
+                }
+                if (curr->children[j] != NULL) {
+                    append(queue, curr->children[j]);
+                    //printf("Number of child keys: %d\n", curr->children[j]->num_keys);
+                }
+            }
+            if (curr->type == LEAF_NODE) {
+                printf("Values: ");
+                for (int j = 0; j < curr->num_keys; j++) {
+                    if (j == curr->num_keys - 1) {
+                        printf("%d\n", curr->values[j]);
+                    }
+                    else {
+                        printf("%d ", curr->values[j]);
+                    }
+                }
+            }
+        }
+        level++;
+        printf("\n");
+    }
+    free_vector(queue);
+
+}
+
+void leaf_insert(Node* node, uint32_t key, uint32_t value) {
+    int i;
+
+    for (i = node->num_keys - 1; i >= 0; i--) {
+        if (node->keys[i] > key) {
+            break;
+        }
+        node->keys[i + 1] = node->keys[i];
+    }
+    if (i < 0) {
+        i = 0;
+    }
+
+    node->keys[i] = key;
+    node->values[i] = value;
+    node->num_keys++;
+}
+
+
+Node* split_node(Node* node) {
+    Node* left_node = new_node(LEAF_NODE);
+    Node* right_node = new_node(LEAF_NODE);
+    int middle = (MAX_KEYS + 1) / 2;
+
+    for (int i = 0; i < middle; i++) {
+        left_node->keys[i] = node->keys[i];
+        if (node->type == LEAF_NODE) {
+            left_node->values[i] = node->values[i];
+        } else {
+            left_node->children[i] = node->children[i];
+        }
+        left_node->num_keys++;
+    }
+    if (node->type != LEAF_NODE) {
+        left_node->children[middle] = node->children[middle];
+    }
+
+    for (int i = 0; i <= MAX_KEYS - middle; i++) {
+        right_node->keys[i] = node->keys[i + middle];
+        if (node->type == LEAF_NODE) {
+            right_node->values[i] = node->values[i + middle];
+        } else {
+            right_node->children[i] = node->children[i + middle];
+        }
+        right_node->num_keys++;
+    }
+    if (node->type != LEAF_NODE) {
+        right_node->children[MAX_KEYS - middle] = node->children[MAX_KEYS];
+    }
+
+
+
+    Node* middle_node = new_node(INTERNAL_NODE);
+    middle_node->keys[0] = node->keys[middle];
+    middle_node->children[0] = left_node;
+    middle_node->children[1] = right_node;
+    middle_node->num_keys = 1;
+
+    return middle_node;
+}
+/**************************************************
+BPlusTree methods
+**************************************************/
 BPlusTree* new_tree() {
     BPlusTree* tree = (BPlusTree*) malloc(sizeof(BPlusTree));
     if (tree == NULL) {
@@ -102,8 +204,99 @@ BPlusTree* new_tree() {
     return tree;
 }
 
+void free_tree(BPlusTree* tree) {
+    free_node(tree->root);
+    free(tree);
+}
+/*
+Insertion procedure:
+1. Traverse tree until you find the leaf node where kv pair should be added
 
+2. If leaf contains fewer kv pairs than MAX_KEYS, insert the kv pair while maintaining order
+
+3. Else, split the node into two nodes along a median. 
+   Left child node contains keys less than median.
+   Right child node contains keys greater than median.
+   Median key gets inserted into parent node.
+   Splitting can propagate upwards, such that a new root could be made if necessary.
+*/
+
+
+Node* insert_into_node(Node* node, int key, int value) {
+    if (node->type == LEAF_NODE) {
+        int i;
+        for (i = node->num_keys - 1; i >= 0 && node->keys[i] > key; i--) {
+            node->keys[i + 1] = node->keys[i];
+            node->values[i + 1] = node->values[i];
+        }
+        node->keys[i + 1] = key;
+        node->values[i + 1] = value;
+        node->num_keys++;
+
+        if (node->num_keys > MAX_KEYS) {
+            return split_node(node);
+        } else {
+            return NULL;
+        }
+    } else {
+        int i = node->num_keys - 1;
+        while (i >= 0 && node->keys[i] > key) {
+            i--;
+        }
+        i++;
+        Node* new_child = insert_into_node(node->children[i], key, value);
+        if (new_child) {
+            for (int j = node->num_keys; j > i; j--) {
+                node->keys[j] = node->keys[j - 1];
+                node->children[j + 1] = node->children[j];
+            }
+            node->keys[i] = new_child->keys[0];
+            node->children[i] = new_child->children[0];
+            node->children[i + 1] = new_child->children[1];
+            node->num_keys++;
+
+            if (node->num_keys > MAX_KEYS) {
+                return split_node(node);
+            } else {
+                return NULL;
+            }
+        } else {
+            return NULL;
+        }
+    }
+}
+
+void insert(BPlusTree* tree, int key, int value) {
+    Node* new_root = insert_into_node(tree->root, key, value);
+    if (new_root) {
+        tree->root = new_root;
+        /*
+        Node* old_root = tree->root;
+        tree->root = new_root;
+        tree->root->children[0] = old_root;
+        */
+    }
+}
+/**************************************************
+MAIN
+**************************************************/
 int main(int argc, char** argv) {
     BPlusTree* tree = new_tree();
+    insert(tree, 1, 2);
+    insert(tree, 2, 3);
+    insert(tree, 3, 4);
+    traverse_tree(tree->root);
+    insert(tree, 4, 5);
+    traverse_tree(tree->root);
+
+
+    insert(tree, 5, 6);
+    traverse_tree(tree->root);
+
+
+    insert(tree, 6, 7);
+    traverse_tree(tree->root);
+
+    free_tree(tree);
     return 0;
 }
